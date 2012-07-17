@@ -1,0 +1,16 @@
+#lang racket/base
+
+;;; mylib1-unsafe.scm
+;;;   Example 1 for SamR's FFI Tutorial
+
+; We need the FFI libraries.
+(require ffi/unsafe
+         ffi/unsafe/define)
+
+; Set up mylib-define to be a link to our sample library
+(define-ffi-definer mylib-define (ffi-lib "mylib1"))
+
+; An interface to 
+;   int isquare (int i)
+(mylib-define isquare (_fun _int -> _int))
+

@@ -1,0 +1,14 @@
+ Eventually, you should be able to build and install this with the standard
+command sequence.
+
+Right now, your option is to just make the damn thing, and to install it
+by hand.
+
+Remember - If you're using 64 bit Linux, you may need to change your
+
+PKG_CONFIG_PATH
+PKG_CONFIG_PATH is an environment variable. Environment variables contain information that affect how certain processes behave on a computer.
+
+PKG_CONFIG_PATH in particular contains a path to all the directories that the pkg-config script checks for certain files it can use to do its job, and is usually the directory /usr/lib/pkgconfig.
+
+To set PKG_CONFIG_PATH to this directory, use this command:
