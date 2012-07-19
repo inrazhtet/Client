@@ -40,13 +40,14 @@ char * tostring (Scheme_Object *obj);
 // | Exported Functions |
 // +--------------------+
 
+/**
+ *creates a proxy for accessing interface_name on the remote object at object_path owned by name at connection and synchronously loads.
+ *it provides the facilities for registering and managing all fundamental data types, user-defined object and interface types.
+ */
 void
 rdbus_init (void)
 {
-//it provides the facilities for registering and managing all fundamental data types, user-defined object and interface types. 
   g_type_init ();
-//creates a proxy for accessing interface_name on the remote object at object_path owned by name at connection and synchronously loads.  
-  
 } // rdbus_init ()
 
 /**
@@ -82,34 +83,41 @@ rdbus_get_object (const gchar *name, const gchar *object_path, const gchar *inte
   return 0;
 } // rdbus_get_object
 
+/**
+ *Translating the scheme_object to gvariant type for the client
+ */
 GVariant *
 scheme_obj_to_gvariant (Scheme_Object *list)
 {
   GVariant *rvalue;
   Scheme_Object *firstelement;
   int length;
-  long i;
+  int i;
   char* rstring;
   double rdouble;
 
   rvalue = NULL; 
   length = scheme_list_length (list);
+  // length = length - 1;
+  // scheme_signal_error("%d", length);
   if (length == 0)
     {
+      //  scheme_signal_error("length 0");
       return rvalue ;
     }  
-  
+ 
   else if (length == 1)
     {
+          scheme_signal_error("mani mani the man");
       // Get the first element of the argument
       firstelement = scheme_car (list);
- 
       // checking the scheme_type to see whether it is an integer or not
       // Eventually see if we can convert this to a switch statement.
-      if (SCHEME_TYPE (firstelement)== scheme_integer_type)
+      if (SCHEME_INTP (firstelement))
 	{
+	    scheme_signal_error("mani the man");
 	  // we saved the return value at &i
-	  scheme_get_int_val (list,&i);
+	   i = SCHEME_INT_VAL(firstelement);
 	  // we convert it to g_variant
           rvalue = g_variant_new_int32 (i);
 	  return rvalue;
@@ -135,30 +143,41 @@ scheme_obj_to_gvariant (Scheme_Object *list)
   return rvalue;
 } // scheme_obj_to_gvariant
 
+/**
+ *Translating the gvariant to Scheme Object
+ */
 Scheme_Object *
 gvariant_to_schemeobj (GVariant *ivalue)
 {
+  gint32 i;
+  GVariant *temp;
+  //const GVariant * thetype;
   Scheme_Object *fvalue = NULL;
-  const gchar *fstring;
+  //const gchar *fstring;
   gsize length;
-  gsize *plength;
   gint32 r1;
-  length = g_variant_get_size(ivalue);
-  plength = &length;
-  if (g_variant_is_of_type (ivalue, G_VARIANT_TYPE_INT32))
+  //gchar *type;
+  length = g_variant_n_children(ivalue);
+  //plength = &length;
+  //scheme_signal_error ("%d", length);
+  //gint32 z;
+  //GVariant *temp;
+	
+  for(i = 0; i < length; i++)
     { 
-      r1 = g_variant_get_int32 (ivalue);
+      temp = g_variant_get_child_value(ivalue, i);
+      if (g_variant_is_of_type  (temp, G_VARIANT_TYPE_INT32))
+    { 
+      //scheme_signal_error ("integer check error");
+      r1 = g_variant_get_int32 (temp);
+     // scheme_signal_error("%d", r1);
       fvalue = scheme_make_integer_value(r1);
       return fvalue;
     }
-  else if (g_variant_is_of_type (ivalue,G_VARIANT_TYPE_STRING))
-    {
-      fstring = g_variant_get_string (ivalue, plength);
-      fvalue = scheme_make_utf8_string (fstring);
-      return fvalue;
-    }
-  return fvalue;
-}
+   }
+       return fvalue;
+	
+}//gvariant_to_schemeobj
 
 /**
  * Convert an array of Scheme objects into a list of the same objects.
@@ -179,6 +198,9 @@ make_object_list (int n, Scheme_Object *values[])
   return result;
 } // make_object_list
 
+/**
+ * Calling the procedure through the DBus Proxy
+ */
 Scheme_Object *
 rdbus_call_method (int i, Scheme_Object *proc, Scheme_Object *list )
 {
@@ -194,6 +216,9 @@ rdbus_call_method (int i, Scheme_Object *proc, Scheme_Object *list )
   Scheme_Object *fobject;
   //Our GDBusProxy Object
   GDBusProxy *proxy;
+  //Scheme_Object actual list
+  Scheme_Object *alist;
+  
   
   
   if (i == 0)
@@ -202,9 +227,12 @@ rdbus_call_method (int i, Scheme_Object *proc, Scheme_Object *list )
       ivalue = scheme_obj_to_gvariant (list);
       // the method is converted into string here
       methodname = tostring (proc);
+     // scheme_signal_error("callerror");
       fprintf (stderr, "Calling %s\n", methodname);
       frvalue = g_dbus_proxy_call_sync (proxy, methodname, ivalue, 0, -1, NULL, &error);
+      //scheme_signal_error("newerror");
       fobject = gvariant_to_schemeobj (frvalue);
+      // scheme_signal_error("lasterror");
       return fobject;
     } // if (i == 0)
  
@@ -305,14 +333,15 @@ Scheme_Object *pardbus_get_object (int argc, Scheme_Object *argv[])
 /**
  * A wrapper for the rdbus_init
  */
-
 Scheme_Object *pardbus_init (int argc, Scheme_Object *argv[])
 {
   rdbus_init();
   return scheme_void;
 }//pardbus_init
 
-
+/**
+ * Scheme Reload
+ */
 Scheme_Object *scheme_reload (Scheme_Env *env)
 {
   Scheme_Env *menv;
@@ -321,7 +350,7 @@ Scheme_Object *scheme_reload (Scheme_Env *env)
   Scheme_Object *proc3;
   // Converting a C procedure to a scheme procedure.
   proc1 = scheme_make_prim_w_arity (pardbus_get_object, "rdbus-get-object", 3, -1);
-  proc2 = scheme_make_prim_w_arity (pardbus_call_method, "rdbus-call-method", 3,-1);
+  proc2 = scheme_make_prim_w_arity (pardbus_call_method, "rdbus-call-method", 2,-1);
   proc3 = scheme_make_prim_w_arity (pardbus_init, "rdbus_init", 0,0);
 
   // Add the new procedures to the shared object for Racket to use
