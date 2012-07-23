@@ -264,7 +264,7 @@ handle_method_call (GDBusConnection       *connection,
       printf ("v2s()\n");
 #endif
       g_dbus_method_invocation_return_value (invocation,
-                                             g_variant_new ("(s)", "Forty Two"));
+                                            g_variant_new ("(s)", "Two"));
     } // v2i
 
   // Handle v2v.
