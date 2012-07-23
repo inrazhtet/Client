@@ -1,0 +1,19 @@
+(require ffi/unsafe)
+
+(display "Loading glib stuff")
+(newline)
+(ffi-lib "libgio-2.0")
+(ffi-lib "libglib-2.0")
+(ffi-lib "libgobject-2.0")
+
+(load-extension "/home/zarni/RDBUS/Client/rdbus.so")
+(rdbus_init)
+
+(display "Setting up connection") (newline)
+(define is (rdbus-get-object "edu.grinnell.cs.glimmer.RAMStest" "/edu/grinnell/cs/glimmer/RAMStest" "edu.grinnell.cs.glimmer.RAMStest"))
+
+(display "Calling stuff") (newline)
+(rdbus-call-method is "v2v")
+(rdbus-call-method is "i2v" 42)
+(rdbus-call-method is "v2i")
+(rdbus-call-method is "i2i" 42)

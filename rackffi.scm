@@ -29,6 +29,6 @@
 ;                                   "edu.grinnell.cs.glimmer.RAMStest"))
 
 (load-extension "/home/zarni/RDBus/rdbus.so")
-;(rdbus_init)
-;(define is (rdbus-get-object "edu.grinnell.cs.glimmer.RAMStest" "/edu/grinnell/cs/glimmer/RAMStest" "edu.grinnell.cs.glimmer.RAMStest"))
-;(rdbus-call-method is "v2v" '())
+(rdbus_init)
+(define is (rdbus-get-object "edu.grinnell.cs.glimmer.RAMStest" "/edu/grinnell/cs/glimmer/RAMStest" "edu.grinnell.cs.glimmer.RAMStest"))
+(rdbus-call-method is "v2v" '())

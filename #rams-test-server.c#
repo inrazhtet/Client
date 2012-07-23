@@ -254,7 +254,9 @@ handle_method_call (GDBusConnection       *connection,
       g_dbus_method_invocation_return_value (invocation,
                                              g_variant_new ("(ii)", 
 					                    rand (),
-							    rand ()));
+							    rand
+
+ ()));
     } // v2ii
 
   // Handle v2s

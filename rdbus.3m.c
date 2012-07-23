@@ -672,6 +672,7 @@ typedef enum {
 GFileTest ; 
 __attribute__ ((__deprecated__ ("Use '" "g_path_get_basename" "' instead" ) ) ) const gchar * g_basename (const gchar * file_name ) ; 
 typedef struct _GMemVTable GMemVTable ; 
+void g_free (gpointer mem ) ; 
 struct _GMemVTable {
   gpointer (* malloc ) (gsize n_bytes ) ; 
   gpointer (* realloc ) (gpointer mem , gsize n_bytes ) ; 
@@ -1215,12 +1216,15 @@ typedef enum {
   G_VARIANT_CLASS_BOOLEAN = 'b' , G_VARIANT_CLASS_BYTE = 'y' , G_VARIANT_CLASS_INT16 = 'n' , G_VARIANT_CLASS_UINT16 = 'q' , G_VARIANT_CLASS_INT32 = 'i' , G_VARIANT_CLASS_UINT32 = 'u' , G_VARIANT_CLASS_INT64 = 'x' , G_VARIANT_CLASS_UINT64 = 't' , G_VARIANT_CLASS_HANDLE = 'h' , G_VARIANT_CLASS_DOUBLE = 'd' , G_VARIANT_CLASS_STRING = 's' , G_VARIANT_CLASS_OBJECT_PATH = 'o' , G_VARIANT_CLASS_SIGNATURE = 'g' , G_VARIANT_CLASS_VARIANT = 'v' , G_VARIANT_CLASS_MAYBE = 'm' , G_VARIANT_CLASS_ARRAY = 'a' , G_VARIANT_CLASS_TUPLE = '(' , G_VARIANT_CLASS_DICT_ENTRY = '{' }
 GVariantClass ; 
 gboolean g_variant_is_of_type (GVariant * value , const GVariantType * type ) ; 
-GVariant * g_variant_new_int32 (gint32 value ) ; 
 GVariant * g_variant_new_double (gdouble value ) ; 
-GVariant * g_variant_new_string (const gchar * string ) ; 
 gint32 g_variant_get_int32 (GVariant * value ) ; 
+gdouble g_variant_get_double (GVariant * value ) ; 
 const gchar * g_variant_get_string (GVariant * value , gsize * length ) ; 
+const gchar * g_variant_get_bytestring (GVariant * value ) ; 
+gsize g_variant_n_children (GVariant * value ) ; 
+GVariant * g_variant_get_child_value (GVariant * value , gsize index_ ) ; 
 gsize g_variant_get_size (GVariant * value ) ; 
+gchar * g_variant_print (GVariant * value , gboolean type_annotate ) ; 
 typedef struct _GVariantIter GVariantIter ; 
 struct _GVariantIter {
   gsize x [16 ] ; 
@@ -1234,6 +1238,10 @@ struct _GVariantBuilder {
 typedef enum {
   G_VARIANT_PARSE_ERROR_FAILED , G_VARIANT_PARSE_ERROR_BASIC_TYPE_EXPECTED , G_VARIANT_PARSE_ERROR_CANNOT_INFER_TYPE , G_VARIANT_PARSE_ERROR_DEFINITE_TYPE_EXPECTED , G_VARIANT_PARSE_ERROR_INPUT_NOT_AT_END , G_VARIANT_PARSE_ERROR_INVALID_CHARACTER , G_VARIANT_PARSE_ERROR_INVALID_FORMAT_STRING , G_VARIANT_PARSE_ERROR_INVALID_OBJECT_PATH , G_VARIANT_PARSE_ERROR_INVALID_SIGNATURE , G_VARIANT_PARSE_ERROR_INVALID_TYPE_STRING , G_VARIANT_PARSE_ERROR_NO_COMMON_TYPE , G_VARIANT_PARSE_ERROR_NUMBER_OUT_OF_RANGE , G_VARIANT_PARSE_ERROR_NUMBER_TOO_BIG , G_VARIANT_PARSE_ERROR_TYPE_ERROR , G_VARIANT_PARSE_ERROR_UNEXPECTED_TOKEN , G_VARIANT_PARSE_ERROR_UNKNOWN_KEYWORD , G_VARIANT_PARSE_ERROR_UNTERMINATED_STRING_CONSTANT , G_VARIANT_PARSE_ERROR_VALUE_EXPECTED }
 GVariantParseError ; 
+GVariantBuilder * g_variant_builder_new (const GVariantType * type ) ; 
+GVariant * g_variant_builder_end (GVariantBuilder * builder ) ; 
+void g_variant_builder_add_value (GVariantBuilder * builder , GVariant * value ) ; 
+GVariant * g_variant_new (const gchar * format_string , ... ) ; 
 typedef struct _GAllocator GAllocator ; 
 typedef struct _GMemChunk GMemChunk ; 
 __attribute__ ((__deprecated__ ) ) GMemChunk * g_mem_chunk_new (const gchar * name , gint atom_size , gsize area_size , gint type ) ; 
@@ -4807,26 +4815,28 @@ extern unsigned char scheme_uchar_combining_classes [] ;
 extern Scheme_Object * scheme_make_prim_w_arity (Scheme_Prim * prim , const char * name , mzshort mina , mzshort maxa ) ; 
 extern Scheme_Object * scheme_make_pair (Scheme_Object * car , Scheme_Object * cdr ) ; 
 extern Scheme_Object * scheme_make_utf8_string (const char * chars ) ; 
+extern Scheme_Object * scheme_make_locale_string (const char * chars ) ; 
 extern Scheme_Object * scheme_char_string_to_byte_string (Scheme_Object * s ) ; 
 extern Scheme_Object * scheme_make_integer_value (intptr_t i ) ; 
-__xform_nongcing__ extern int scheme_get_int_val (Scheme_Object * o , intptr_t * v ) ; 
+extern Scheme_Object * scheme_make_double (double d ) ; 
 __xform_nongcing__ extern double scheme_real_to_double (Scheme_Object * r ) ; 
 extern void scheme_add_global (const char * name , Scheme_Object * val , Scheme_Env * env ) ; 
 extern Scheme_Object * scheme_intern_symbol (const char * name ) ; 
 extern int scheme_list_length (Scheme_Object * list ) ; 
 extern Scheme_Object * scheme_car (Scheme_Object * pair ) ; 
+extern Scheme_Object * scheme_cdr (Scheme_Object * pair ) ; 
 extern Scheme_Object * scheme_initialize (Scheme_Env * global_env ) ; 
 extern Scheme_Object * scheme_reload (Scheme_Env * global_env ) ; 
 extern Scheme_Object * scheme_module_name (void ) ; 
 GDBusProxy * Proxyobj = ((void * ) 0 ) ; 
 char * tostring (Scheme_Object * obj ) ; 
+Scheme_Object * gvariant_to_schemeobj (GVariant * val ) ; 
 void rdbus_init (void ) {
   /* No conversion */
   g_type_init () ; 
 }
 int rdbus_get_object (const gchar * name , const gchar * object_path , const gchar * interface_name ) {
   const GDBusProxy * objects [128 ] ; 
-  const int latest_object = 0 ; 
   GError * error ; 
   DECL_RET_SAVE (int ) PREPARE_VAR_STACK_ONCE(4);
   BLOCK_SETUP_TOP((PUSH(error, 0), PUSHARRAY(objects, 128, 1)));
@@ -4850,93 +4860,191 @@ int rdbus_get_object (const gchar * name , const gchar * object_path , const gch
 # undef FUNCCALL_AGAIN
 }
 GVariant * scheme_obj_to_gvariant (Scheme_Object * list ) {
-  GVariant * rvalue ; 
+  GVariantBuilder * builder ; 
+  GVariant * finalr ; 
+  GVariant * rvalue = ((void * ) 0 ) ; 
   Scheme_Object * firstelement ; 
-  int length ; 
-  long i ; 
+  int length = 0 ; 
+  gint32 i ; 
   char * rstring ; 
   double rdouble ; 
-  DECL_RET_SAVE (GVariant * ) PREPARE_VAR_STACK_ONCE(4);
-  BLOCK_SETUP_TOP((PUSH(rstring, 0), PUSH(firstelement, 1), PUSH(rvalue, 2), PUSH(list, 3)));
-# define XfOrM4_COUNT (4)
+  DECL_RET_SAVE (GVariant * ) PREPARE_VAR_STACK_ONCE(6);
+  BLOCK_SETUP_TOP((PUSH(firstelement, 0), PUSH(rvalue, 1), PUSH(builder, 2), PUSH(list, 3), PUSH(finalr, 4), PUSH(rstring, 5)));
+# define XfOrM4_COUNT (6)
 # define SETUP_XfOrM4(x) SETUP(XfOrM4_COUNT)
 # define BLOCK_SETUP(x) BLOCK_SETUP_once(x)
 # define FUNCCALL(s, x) FUNCCALL_once(s, x)
 # define FUNCCALL_EMPTY(x) FUNCCALL_EMPTY_once(x)
 # define FUNCCALL_AGAIN(x) FUNCCALL_AGAIN_once(x)
-  rvalue = NULLED_OUT ; 
+  builder = NULLED_OUT ; 
+  finalr = NULLED_OUT ; 
   firstelement = NULLED_OUT ; 
   rstring = NULLED_OUT ; 
-  rvalue = ((void * ) 0 ) ; 
-  length = FUNCCALL(SETUP_XfOrM4(_), scheme_list_length (list ) ); 
+  builder = FUNCCALL(SETUP_XfOrM4(_), g_variant_builder_new (((const GVariantType * ) "r" ) ) ); 
+  length = FUNCCALL_AGAIN(scheme_list_length (list ) ); 
   if (length == 0 ) {
     RET_VALUE_START (rvalue ) RET_VALUE_END ; 
   }
-  else if (length == 1 ) {
+  else {
 #   define XfOrM5_COUNT (0+XfOrM4_COUNT)
 #   define SETUP_XfOrM5(x) SETUP_XfOrM4(x)
-    firstelement = FUNCCALL(SETUP_XfOrM5(_), scheme_car (list ) ); 
-    if (((((intptr_t ) (firstelement ) ) & 0x1 ) ? (Scheme_Type ) scheme_integer_type : ((Scheme_Object * ) (firstelement ) ) -> type ) == scheme_integer_type ) {
-#     define XfOrM8_COUNT (0+XfOrM5_COUNT)
-#     define SETUP_XfOrM8(x) SETUP_XfOrM5(x)
-      (scheme_get_int_val (list , & i ) ) ; 
-      rvalue = FUNCCALL(SETUP_XfOrM8(_), g_variant_new_int32 (i ) ); 
-      RET_VALUE_START (rvalue ) RET_VALUE_END ; 
+    while (length != 0 ) {
+#     define XfOrM10_COUNT (0+XfOrM5_COUNT)
+#     define SETUP_XfOrM10(x) SETUP_XfOrM5(x)
+      firstelement = FUNCCALL(SETUP_XfOrM10(_), scheme_car (list ) ); 
+      list = FUNCCALL(SETUP_XfOrM10(_), scheme_cdr (list ) ); 
+      length = FUNCCALL_AGAIN(scheme_list_length (list ) ); 
+      if ((((intptr_t ) (firstelement ) ) & 0x1 ) ) {
+#       define XfOrM13_COUNT (0+XfOrM10_COUNT)
+#       define SETUP_XfOrM13(x) SETUP_XfOrM10(x)
+        i = (((intptr_t ) (firstelement ) ) >> 1 ) ; 
+        rvalue = FUNCCALL(SETUP_XfOrM13(_), g_variant_new ("i" , i ) ); 
+        FUNCCALL_AGAIN(g_variant_builder_add_value (builder , rvalue ) ); 
+      }
+      else if (((Scheme_Type ) (((((intptr_t ) (firstelement ) ) & 0x1 ) ? (Scheme_Type ) scheme_integer_type : ((Scheme_Object * ) (firstelement ) ) -> type ) ) == (Scheme_Type ) (scheme_byte_string_type ) ) || ((Scheme_Type ) (((((intptr_t ) (firstelement ) ) & 0x1 ) ? (Scheme_Type ) scheme_integer_type : ((Scheme_Object * ) (firstelement ) ) -> type ) ) == (Scheme_Type ) (scheme_char_string_type ) ) ) {
+#       define XfOrM12_COUNT (0+XfOrM10_COUNT)
+#       define SETUP_XfOrM12(x) SETUP_XfOrM10(x)
+        rstring = (((Scheme_Simple_Object * ) (list ) ) -> u . byte_str_val . string_val ) ; 
+        rvalue = FUNCCALL(SETUP_XfOrM12(_), g_variant_new ("(&s)" , rstring ) ); 
+        FUNCCALL_AGAIN(g_variant_builder_add_value (builder , rvalue ) ); 
+      }
+      else if (((((intptr_t ) (firstelement ) ) & 0x1 ) ? (Scheme_Type ) scheme_integer_type : ((Scheme_Object * ) (firstelement ) ) -> type ) == scheme_double_type ) {
+#       define XfOrM11_COUNT (0+XfOrM10_COUNT)
+#       define SETUP_XfOrM11(x) SETUP_XfOrM10(x)
+        rdouble = (scheme_real_to_double (list ) ) ; 
+        rvalue = FUNCCALL(SETUP_XfOrM11(_), g_variant_new_double (rdouble ) ); 
+        FUNCCALL_AGAIN(g_variant_builder_add_value (builder , rvalue ) ); 
+      }
     }
-    else if (((((intptr_t ) (firstelement ) ) & 0x1 ) ? (Scheme_Type ) scheme_integer_type : ((Scheme_Object * ) (firstelement ) ) -> type ) == scheme_char_type ) {
-#     define XfOrM7_COUNT (0+XfOrM5_COUNT)
-#     define SETUP_XfOrM7(x) SETUP_XfOrM5(x)
-      rstring = (((Scheme_Simple_Object * ) (list ) ) -> u . byte_str_val . string_val ) ; 
-      rvalue = FUNCCALL(SETUP_XfOrM7(_), g_variant_new_string (rstring ) ); 
-      RET_VALUE_START (rvalue ) RET_VALUE_END ; 
-    }
-    else if (((((intptr_t ) (firstelement ) ) & 0x1 ) ? (Scheme_Type ) scheme_integer_type : ((Scheme_Object * ) (firstelement ) ) -> type ) == scheme_double_type ) {
-#     define XfOrM6_COUNT (0+XfOrM5_COUNT)
-#     define SETUP_XfOrM6(x) SETUP_XfOrM5(x)
-      rdouble = (scheme_real_to_double (list ) ) ; 
-      rvalue = FUNCCALL(SETUP_XfOrM6(_), g_variant_new_double (rdouble ) ); 
-      RET_VALUE_START (rvalue ) RET_VALUE_END ; 
-    }
+    finalr = FUNCCALL(SETUP_XfOrM5(_), g_variant_builder_end (builder ) ); 
+    RET_VALUE_START (finalr ) RET_VALUE_END ; 
   }
-  RET_VALUE_START (rvalue ) RET_VALUE_END ; 
+  RET_VALUE_START (finalr ) RET_VALUE_END ; 
+# undef BLOCK_SETUP
+# undef FUNCCALL
+# undef FUNCCALL_EMPTY
+# undef FUNCCALL_AGAIN
+}
+Scheme_Object * g_variant_tuple_to_scheme_list (GVariant * tuple , int index , int size ) {
+  GVariant * __funcarg66 = NULLED_OUT ; 
+  DECL_RET_SAVE (Scheme_Object * ) PREPARE_VAR_STACK(3);
+  BLOCK_SETUP_TOP((PUSH(tuple, 0)));
+# define XfOrM15_COUNT (1)
+# define SETUP_XfOrM15(x) SETUP(XfOrM15_COUNT)
+# define BLOCK_SETUP(x) BLOCK_SETUP_each(x)
+# define FUNCCALL(s, x) FUNCCALL_each(s, x)
+# define FUNCCALL_EMPTY(x) FUNCCALL_EMPTY_each(x)
+# define FUNCCALL_AGAIN(x) FUNCCALL_AGAIN_each(x)
+  if (index == size )
+    RET_VALUE_START (scheme_null ) RET_VALUE_END ; 
+  else {
+    Scheme_Object * car ; 
+    Scheme_Object * cdr ; 
+    BLOCK_SETUP((PUSH(cdr, 0+XfOrM15_COUNT), PUSH(car, 1+XfOrM15_COUNT)));
+#   define XfOrM16_COUNT (2+XfOrM15_COUNT)
+#   define SETUP_XfOrM16(x) SETUP(XfOrM16_COUNT)
+    car = NULLED_OUT ; 
+    cdr = NULLED_OUT ; 
+    car = (__funcarg66 = FUNCCALL(SETUP_XfOrM16(_), g_variant_get_child_value (tuple , index ) ), FUNCCALL_AGAIN(gvariant_to_schemeobj (__funcarg66 ) )) ; 
+    cdr = FUNCCALL_AGAIN(g_variant_tuple_to_scheme_list (tuple , index + 1 , size ) ); 
+    RET_VALUE_EMPTY_START (FUNCCALL_EMPTY(scheme_make_pair (car , cdr ) )) RET_VALUE_EMPTY_END ; 
+  }
 # undef BLOCK_SETUP
 # undef FUNCCALL
 # undef FUNCCALL_EMPTY
 # undef FUNCCALL_AGAIN
 }
 Scheme_Object * gvariant_to_schemeobj (GVariant * ivalue ) {
-  Scheme_Object * fvalue = ((void * ) 0 ) ; 
+  gint32 i ; 
+  GVariant * temp ; 
   const gchar * fstring ; 
-  gsize length ; 
-  gsize * plength ; 
-  gint32 r1 ; 
-  DECL_RET_SAVE (Scheme_Object * ) PREPARE_VAR_STACK_ONCE(4);
-  BLOCK_SETUP_TOP((PUSH(plength, 0), PUSH(fstring, 1), PUSH(fvalue, 2), PUSH(ivalue, 3)));
-# define XfOrM10_COUNT (4)
-# define SETUP_XfOrM10(x) SETUP(XfOrM10_COUNT)
-# define BLOCK_SETUP(x) BLOCK_SETUP_once(x)
-# define FUNCCALL(s, x) FUNCCALL_once(s, x)
-# define FUNCCALL_EMPTY(x) FUNCCALL_EMPTY_once(x)
-# define FUNCCALL_AGAIN(x) FUNCCALL_AGAIN_once(x)
+  gsize length = 0 ; 
+  gsize size = 0 ; 
+  gint32 r1 = 0 ; 
+  gdouble r2 = 0 ; 
+  Scheme_Object * fint ; 
+  Scheme_Object * fstringss ; 
+  Scheme_Object * fdouble ; 
+  Scheme_Object * sflist = ((void * ) 0 ) ; 
+  gchar * tmp ; 
+  GVariant * __funcarg68 = NULLED_OUT ; 
+  DECL_RET_SAVE (Scheme_Object * ) PREPARE_VAR_STACK(8);
+  BLOCK_SETUP_TOP((PUSH(ivalue, 0), PUSH(fdouble, 1), PUSH(fstringss, 2), PUSH(fint, 3), PUSH(fstring, 4), PUSH(tmp, 5)));
+# define XfOrM17_COUNT (6)
+# define SETUP_XfOrM17(x) SETUP(XfOrM17_COUNT)
+# define BLOCK_SETUP(x) BLOCK_SETUP_each(x)
+# define FUNCCALL(s, x) FUNCCALL_each(s, x)
+# define FUNCCALL_EMPTY(x) FUNCCALL_EMPTY_each(x)
+# define FUNCCALL_AGAIN(x) FUNCCALL_AGAIN_each(x)
+  temp = NULLED_OUT ; 
   fstring = NULLED_OUT ; 
-  plength = NULLED_OUT ; 
-  length = FUNCCALL(SETUP_XfOrM10(_), g_variant_get_size (ivalue ) ); 
-  plength = & length ; 
-  if (FUNCCALL(SETUP_XfOrM10(_), g_variant_is_of_type (ivalue , ((const GVariantType * ) "i" ) ) )) {
-#   define XfOrM12_COUNT (0+XfOrM10_COUNT)
-#   define SETUP_XfOrM12(x) SETUP_XfOrM10(x)
-    r1 = FUNCCALL(SETUP_XfOrM12(_), g_variant_get_int32 (ivalue ) ); 
-    fvalue = FUNCCALL(SETUP_XfOrM12(_), scheme_make_integer_value (r1 ) ); 
-    RET_VALUE_START (fvalue ) RET_VALUE_END ; 
+  fint = NULLED_OUT ; 
+  fstringss = NULLED_OUT ; 
+  fdouble = NULLED_OUT ; 
+  tmp = NULLED_OUT ; 
+  tmp = FUNCCALL(SETUP_XfOrM17(_), g_variant_print (ivalue , (0 ) ) ); 
+  FUNCCALL_AGAIN(fprintf (stderr , "gvariant_to_schemobj(%s)\n" , tmp ) ); 
+  FUNCCALL_AGAIN(g_free (tmp ) ); 
+  size = FUNCCALL_AGAIN(g_variant_get_size (ivalue ) ); 
+  if (ivalue == ((void * ) 0 ) ) {
+    RET_VALUE_START (scheme_void ) RET_VALUE_END ; 
   }
-  else if (FUNCCALL(SETUP_XfOrM10(_), g_variant_is_of_type (ivalue , ((const GVariantType * ) "s" ) ) )) {
-#   define XfOrM11_COUNT (0+XfOrM10_COUNT)
-#   define SETUP_XfOrM11(x) SETUP_XfOrM10(x)
-    fstring = FUNCCALL(SETUP_XfOrM11(_), g_variant_get_string (ivalue , plength ) ); 
-    fvalue = FUNCCALL(SETUP_XfOrM11(_), scheme_make_utf8_string (fstring ) ); 
-    RET_VALUE_START (fvalue ) RET_VALUE_END ; 
+  if (FUNCCALL(SETUP_XfOrM17(_), g_variant_is_of_type (ivalue , ((const GVariantType * ) "i" ) ) )) {
+#   define XfOrM25_COUNT (0+XfOrM17_COUNT)
+#   define SETUP_XfOrM25(x) SETUP_XfOrM17(x)
+    r1 = FUNCCALL(SETUP_XfOrM25(_), g_variant_get_int32 (ivalue ) ); 
+    fint = FUNCCALL(SETUP_XfOrM25(_), scheme_make_integer_value (r1 ) ); 
+    RET_VALUE_START (fint ) RET_VALUE_END ; 
   }
-  RET_VALUE_START (fvalue ) RET_VALUE_END ; 
+  else if (FUNCCALL(SETUP_XfOrM17(_), g_variant_is_of_type (ivalue , ((const GVariantType * ) "s" ) ) )) {
+#   define XfOrM24_COUNT (0+XfOrM17_COUNT)
+#   define SETUP_XfOrM24(x) SETUP_XfOrM17(x)
+    FUNCCALL(SETUP_XfOrM24(_), fprintf (stderr , "Type_string\n" ) ); 
+    fstring = FUNCCALL(SETUP_XfOrM24(_), g_variant_get_string (ivalue , & size ) ); 
+    fstringss = FUNCCALL_AGAIN(scheme_make_locale_string (fstring ) ); 
+    RET_VALUE_START (fstringss ) RET_VALUE_END ; 
+  }
+  else if (FUNCCALL(SETUP_XfOrM17(_), g_variant_is_of_type (ivalue , ((const GVariantType * ) "ay" ) ) )) {
+#   define XfOrM23_COUNT (0+XfOrM17_COUNT)
+#   define SETUP_XfOrM23(x) SETUP_XfOrM17(x)
+    FUNCCALL(SETUP_XfOrM23(_), fprintf (stderr , "Bytestring\n" ) ); 
+    FUNCCALL_EMPTY(scheme_signal_error ("stringbyeerror" ) ); 
+    fstring = FUNCCALL_AGAIN(g_variant_get_bytestring (ivalue ) ); 
+    fstringss = FUNCCALL_AGAIN(scheme_make_locale_string (fstring ) ); 
+    RET_VALUE_START (fstringss ) RET_VALUE_END ; 
+  }
+  else if (FUNCCALL(SETUP_XfOrM17(_), g_variant_is_of_type (ivalue , ((const GVariantType * ) "d" ) ) )) {
+#   define XfOrM22_COUNT (0+XfOrM17_COUNT)
+#   define SETUP_XfOrM22(x) SETUP_XfOrM17(x)
+    r2 = FUNCCALL(SETUP_XfOrM22(_), g_variant_get_double (ivalue ) ); 
+    fdouble = FUNCCALL(SETUP_XfOrM22(_), scheme_make_double (r2 ) ); 
+    RET_VALUE_START (fdouble ) RET_VALUE_END ; 
+  }
+  else if (FUNCCALL(SETUP_XfOrM17(_), g_variant_is_of_type (ivalue , ((const GVariantType * ) "r" ) ) )) {
+    int i ; 
+    Scheme_Object * result ; 
+    Scheme_Object * element ; 
+    BLOCK_SETUP((PUSH(result, 0+XfOrM17_COUNT), PUSH(element, 1+XfOrM17_COUNT)));
+#   define XfOrM19_COUNT (2+XfOrM17_COUNT)
+#   define SETUP_XfOrM19(x) SETUP(XfOrM19_COUNT)
+    result = NULLED_OUT ; 
+    element = NULLED_OUT ; 
+    FUNCCALL(SETUP_XfOrM19(_), fprintf (stderr , "Handling a tuple.\n" ) ); 
+    result = scheme_null ; 
+    for (i = FUNCCALL(SETUP_XfOrM19(_), g_variant_n_children (ivalue ) )- 1 ; i >= 0 ; i -- ) {
+#     define XfOrM21_COUNT (0+XfOrM19_COUNT)
+#     define SETUP_XfOrM21(x) SETUP_XfOrM19(x)
+      FUNCCALL(SETUP_XfOrM21(_), fprintf (stderr , "Handling child %d\n" , i ) ); 
+      element = (__funcarg68 = FUNCCALL(SETUP_XfOrM21(_), g_variant_get_child_value (ivalue , i ) ), FUNCCALL_AGAIN(gvariant_to_schemeobj (__funcarg68 ) )) ; 
+      result = FUNCCALL_AGAIN(scheme_make_pair (element , result ) ); 
+    }
+    RET_VALUE_START (result ) RET_VALUE_END ; 
+  }
+  else {
+#   define XfOrM18_COUNT (0+XfOrM17_COUNT)
+#   define SETUP_XfOrM18(x) SETUP_XfOrM17(x)
+    FUNCCALL_EMPTY(scheme_signal_error ("could not convert type" ) ); 
+  }
 # undef BLOCK_SETUP
 # undef FUNCCALL
 # undef FUNCCALL_EMPTY
@@ -4947,8 +5055,8 @@ Scheme_Object * make_object_list (int n , Scheme_Object * values [] ) {
   int i ; 
   DECL_RET_SAVE (Scheme_Object * ) PREPARE_VAR_STACK_ONCE(2);
   BLOCK_SETUP_TOP((PUSH(values, 0), PUSH(result, 1)));
-# define XfOrM13_COUNT (2)
-# define SETUP_XfOrM13(x) SETUP(XfOrM13_COUNT)
+# define XfOrM27_COUNT (2)
+# define SETUP_XfOrM27(x) SETUP(XfOrM27_COUNT)
 # define BLOCK_SETUP(x) BLOCK_SETUP_once(x)
 # define FUNCCALL(s, x) FUNCCALL_once(s, x)
 # define FUNCCALL_EMPTY(x) FUNCCALL_EMPTY_once(x)
@@ -4956,9 +5064,9 @@ Scheme_Object * make_object_list (int n , Scheme_Object * values [] ) {
   result = NULLED_OUT ; 
   result = scheme_null ; 
   for (i = n - 1 ; i >= 0 ; i -- ) {
-#   define XfOrM15_COUNT (0+XfOrM13_COUNT)
-#   define SETUP_XfOrM15(x) SETUP_XfOrM13(x)
-    result = FUNCCALL(SETUP_XfOrM15(_), scheme_make_pair (values [i ] , result ) ); 
+#   define XfOrM29_COUNT (0+XfOrM27_COUNT)
+#   define SETUP_XfOrM29(x) SETUP_XfOrM27(x)
+    result = FUNCCALL(SETUP_XfOrM29(_), scheme_make_pair (values [i ] , result ) ); 
   }
   RET_VALUE_START (result ) RET_VALUE_END ; 
 # undef BLOCK_SETUP
@@ -4973,10 +5081,10 @@ Scheme_Object * rdbus_call_method (int i , Scheme_Object * proc , Scheme_Object 
   GError * error ; 
   Scheme_Object * fobject ; 
   GDBusProxy * proxy ; 
-  DECL_RET_SAVE (Scheme_Object * ) PREPARE_VAR_STACK_ONCE(7);
-  BLOCK_SETUP_TOP((PUSH(ivalue, 0), PUSH(error, 1), PUSH(methodname, 2), PUSH(frvalue, 3), PUSH(fobject, 4), PUSH(proxy, 5), PUSH(proc, 6)));
-# define XfOrM16_COUNT (7)
-# define SETUP_XfOrM16(x) SETUP(XfOrM16_COUNT)
+  DECL_RET_SAVE (Scheme_Object * ) PREPARE_VAR_STACK_ONCE(8);
+  BLOCK_SETUP_TOP((PUSH(proxy, 0), PUSH(ivalue, 1), PUSH(fobject, 2), PUSH(methodname, 3), PUSH(frvalue, 4), PUSH(list, 5), PUSH(proc, 6), PUSH(error, 7)));
+# define XfOrM30_COUNT (8)
+# define SETUP_XfOrM30(x) SETUP(XfOrM30_COUNT)
 # define BLOCK_SETUP(x) BLOCK_SETUP_once(x)
 # define FUNCCALL(s, x) FUNCCALL_once(s, x)
 # define FUNCCALL_EMPTY(x) FUNCCALL_EMPTY_once(x)
@@ -4988,20 +5096,33 @@ Scheme_Object * rdbus_call_method (int i , Scheme_Object * proc , Scheme_Object 
   fobject = NULLED_OUT ; 
   proxy = NULLED_OUT ; 
   if (i == 0 ) {
-#   define XfOrM18_COUNT (0+XfOrM16_COUNT)
-#   define SETUP_XfOrM18(x) SETUP_XfOrM16(x)
+#   define XfOrM32_COUNT (0+XfOrM30_COUNT)
+#   define SETUP_XfOrM32(x) SETUP_XfOrM30(x)
     proxy = Proxyobj ; 
-    ivalue = FUNCCALL(SETUP_XfOrM18(_), scheme_obj_to_gvariant (list ) ); 
+    FUNCCALL(SETUP_XfOrM32(_), fprintf (stderr , "Before crashing\n" ) ); 
+    ivalue = FUNCCALL_AGAIN(scheme_obj_to_gvariant (list ) ); 
     methodname = FUNCCALL_AGAIN(tostring (proc ) ); 
-    FUNCCALL_AGAIN(fprintf (stderr , "Calling %s\n" , methodname ) ); 
-    frvalue = FUNCCALL_AGAIN(g_dbus_proxy_call_sync (proxy , methodname , ivalue , 0 , - 1 , ((void * ) 0 ) , & error ) ); 
-    fobject = FUNCCALL_AGAIN(gvariant_to_schemeobj (frvalue ) ); 
+    FUNCCALL_AGAIN(fprintf (stderr , "after method name\n" ) ); 
+    error = ((void * ) 0 ) ; 
+    frvalue = FUNCCALL(SETUP_XfOrM32(_), g_dbus_proxy_call_sync (proxy , methodname , ivalue , 0 , - 1 , ((void * ) 0 ) , & error ) ); 
+    FUNCCALL_AGAIN(fprintf (stderr , "after calling gdbus\n" ) ); 
+    if (frvalue == ((void * ) 0 ) ) {
+#     define XfOrM33_COUNT (0+XfOrM32_COUNT)
+#     define SETUP_XfOrM33(x) SETUP_XfOrM32(x)
+      FUNCCALL(SETUP_XfOrM33(_), fprintf (stderr , "Call to %s failed " , methodname ) ); 
+      if (error != ((void * ) 0 ) )
+        FUNCCALL(SETUP_XfOrM33(_), fprintf (stderr , "because %s.\n" , error -> message ) ); 
+      else FUNCCALL(SETUP_XfOrM33(_), fprintf (stderr , "for an unknown reason.\n" ) ); 
+      RET_VALUE_START (scheme_void ) RET_VALUE_END ; 
+    }
+    fobject = FUNCCALL(SETUP_XfOrM32(_), gvariant_to_schemeobj (frvalue ) ); 
+    FUNCCALL(SETUP_XfOrM32(_), fprintf (stderr , "after calling gvariant_to_schemeobj\n" ) ); 
     RET_VALUE_START (fobject ) RET_VALUE_END ; 
   }
   else {
-#   define XfOrM17_COUNT (0+XfOrM16_COUNT)
-#   define SETUP_XfOrM17(x) SETUP_XfOrM16(x)
-    RET_VALUE_START (FUNCCALL(SETUP_XfOrM17(_), scheme_make_utf8_string ("There is sth wrong with the Proxy Object" ) )) RET_VALUE_END ; 
+#   define XfOrM31_COUNT (0+XfOrM30_COUNT)
+#   define SETUP_XfOrM31(x) SETUP_XfOrM30(x)
+    RET_VALUE_START (FUNCCALL(SETUP_XfOrM31(_), scheme_make_utf8_string ("There is sth wrong with the Proxy Object" ) )) RET_VALUE_END ; 
   }
 # undef BLOCK_SETUP
 # undef FUNCCALL
@@ -5009,22 +5130,22 @@ Scheme_Object * rdbus_call_method (int i , Scheme_Object * proc , Scheme_Object 
 # undef FUNCCALL_AGAIN
 }
 Scheme_Object * pardbus_call_method (int argc , Scheme_Object * argv [] ) {
-  Scheme_Object * __funcarg66 = NULLED_OUT ; 
+  Scheme_Object * __funcarg69 = NULLED_OUT ; 
   DECL_RET_SAVE (Scheme_Object * ) PREPARE_VAR_STACK_ONCE(1);
   BLOCK_SETUP_TOP((PUSH(argv, 0)));
-# define XfOrM19_COUNT (1)
-# define SETUP_XfOrM19(x) SETUP(XfOrM19_COUNT)
+# define XfOrM34_COUNT (1)
+# define SETUP_XfOrM34(x) SETUP(XfOrM34_COUNT)
 # define BLOCK_SETUP(x) BLOCK_SETUP_once(x)
 # define FUNCCALL(s, x) FUNCCALL_once(s, x)
 # define FUNCCALL_EMPTY(x) FUNCCALL_EMPTY_once(x)
 # define FUNCCALL_AGAIN(x) FUNCCALL_AGAIN_once(x)
   if (argc < 2 ) {
-#   define XfOrM20_COUNT (0+XfOrM19_COUNT)
-#   define SETUP_XfOrM20(x) SETUP_XfOrM19(x)
+#   define XfOrM35_COUNT (0+XfOrM34_COUNT)
+#   define SETUP_XfOrM35(x) SETUP_XfOrM34(x)
     FUNCCALL_EMPTY(scheme_signal_error ("Call method needs at least two parameters." ) ); 
     RET_VALUE_START (((void * ) 0 ) ) RET_VALUE_END ; 
   }
-  RET_VALUE_START ((__funcarg66 = FUNCCALL(SETUP_XfOrM19(_), make_object_list (argc - 2 , argv + 2 ) ), FUNCCALL_EMPTY(rdbus_call_method ((((intptr_t ) (argv [0 ] ) ) >> 1 ) , argv [1 ] , __funcarg66 ) )) ) RET_VALUE_END ; 
+  RET_VALUE_START ((__funcarg69 = FUNCCALL(SETUP_XfOrM34(_), make_object_list (argc - 2 , argv + 2 ) ), FUNCCALL_EMPTY(rdbus_call_method ((((intptr_t ) (argv [0 ] ) ) >> 1 ) , argv [1 ] , __funcarg69 ) )) ) RET_VALUE_END ; 
 # undef BLOCK_SETUP
 # undef FUNCCALL
 # undef FUNCCALL_EMPTY
@@ -5049,8 +5170,8 @@ Scheme_Object * pardbus_get_object (int argc , Scheme_Object * argv [] ) {
   int object ; 
   DECL_RET_SAVE (Scheme_Object * ) PREPARE_VAR_STACK_ONCE(4);
   BLOCK_SETUP_TOP((PUSH(interface, 0), PUSH(service, 1), PUSH(argv, 2), PUSH(path, 3)));
-# define XfOrM23_COUNT (4)
-# define SETUP_XfOrM23(x) SETUP(XfOrM23_COUNT)
+# define XfOrM38_COUNT (4)
+# define SETUP_XfOrM38(x) SETUP(XfOrM38_COUNT)
 # define BLOCK_SETUP(x) BLOCK_SETUP_once(x)
 # define FUNCCALL(s, x) FUNCCALL_once(s, x)
 # define FUNCCALL_EMPTY(x) FUNCCALL_EMPTY_once(x)
@@ -5059,23 +5180,23 @@ Scheme_Object * pardbus_get_object (int argc , Scheme_Object * argv [] ) {
   path = NULLED_OUT ; 
   interface = NULLED_OUT ; 
   if (argc != 3 ) {
-#   define XfOrM26_COUNT (0+XfOrM23_COUNT)
-#   define SETUP_XfOrM26(x) SETUP_XfOrM23(x)
+#   define XfOrM41_COUNT (0+XfOrM38_COUNT)
+#   define SETUP_XfOrM41(x) SETUP_XfOrM38(x)
     FUNCCALL_EMPTY(scheme_signal_error ("rdbus-get-object: Requires exactly three parameters.\n" ) ); 
     RET_VALUE_START (scheme_void ) RET_VALUE_END ; 
   }
-  if ((! FUNCCALL(SETUP_XfOrM23(_), stringp (argv [0 ] ) )) || (! FUNCCALL(SETUP_XfOrM23(_), stringp (argv [1 ] ) )) || (! FUNCCALL(SETUP_XfOrM23(_), stringp (argv [2 ] ) )) ) {
-#   define XfOrM25_COUNT (0+XfOrM23_COUNT)
-#   define SETUP_XfOrM25(x) SETUP_XfOrM23(x)
+  if ((! FUNCCALL(SETUP_XfOrM38(_), stringp (argv [0 ] ) )) || (! FUNCCALL(SETUP_XfOrM38(_), stringp (argv [1 ] ) )) || (! FUNCCALL(SETUP_XfOrM38(_), stringp (argv [2 ] ) )) ) {
+#   define XfOrM40_COUNT (0+XfOrM38_COUNT)
+#   define SETUP_XfOrM40(x) SETUP_XfOrM38(x)
     FUNCCALL_EMPTY(scheme_signal_error ("rdbus-get-object: All three parameters must be strings" ) ); 
   }
-  service = FUNCCALL(SETUP_XfOrM23(_), tostring (argv [0 ] ) ); 
-  path = FUNCCALL(SETUP_XfOrM23(_), tostring (argv [1 ] ) ); 
+  service = FUNCCALL(SETUP_XfOrM38(_), tostring (argv [0 ] ) ); 
+  path = FUNCCALL(SETUP_XfOrM38(_), tostring (argv [1 ] ) ); 
   interface = FUNCCALL_AGAIN(tostring (argv [2 ] ) ); 
   object = FUNCCALL_EMPTY(rdbus_get_object (service , path , interface ) ); 
   if (object < 0 ) {
-#   define XfOrM24_COUNT (0+XfOrM23_COUNT)
-#   define SETUP_XfOrM24(x) SETUP_XfOrM23(x)
+#   define XfOrM39_COUNT (0+XfOrM38_COUNT)
+#   define SETUP_XfOrM39(x) SETUP_XfOrM38(x)
     FUNCCALL_EMPTY(scheme_signal_error ("Could not create bus object." ) ); 
     RET_VALUE_START (scheme_void ) RET_VALUE_END ; 
   }
@@ -5097,8 +5218,8 @@ Scheme_Object * scheme_reload (Scheme_Env * env ) {
   Scheme_Object * proc3 ; 
   DECL_RET_SAVE (Scheme_Object * ) PREPARE_VAR_STACK_ONCE(4);
   BLOCK_SETUP_TOP((PUSH(proc3, 0), PUSH(proc2, 1), PUSH(proc1, 2), PUSH(env, 3)));
-# define XfOrM28_COUNT (4)
-# define SETUP_XfOrM28(x) SETUP(XfOrM28_COUNT)
+# define XfOrM43_COUNT (4)
+# define SETUP_XfOrM43(x) SETUP(XfOrM43_COUNT)
 # define BLOCK_SETUP(x) BLOCK_SETUP_once(x)
 # define FUNCCALL(s, x) FUNCCALL_once(s, x)
 # define FUNCCALL_EMPTY(x) FUNCCALL_EMPTY_once(x)
@@ -5107,8 +5228,8 @@ Scheme_Object * scheme_reload (Scheme_Env * env ) {
   proc1 = NULLED_OUT ; 
   proc2 = NULLED_OUT ; 
   proc3 = NULLED_OUT ; 
-  proc1 = FUNCCALL(SETUP_XfOrM28(_), scheme_make_prim_w_arity (pardbus_get_object , "rdbus-get-object" , 3 , - 1 ) ); 
-  proc2 = FUNCCALL_AGAIN(scheme_make_prim_w_arity (pardbus_call_method , "rdbus-call-method" , 3 , - 1 ) ); 
+  proc1 = FUNCCALL(SETUP_XfOrM43(_), scheme_make_prim_w_arity (pardbus_get_object , "rdbus-get-object" , 3 , - 1 ) ); 
+  proc2 = FUNCCALL_AGAIN(scheme_make_prim_w_arity (pardbus_call_method , "rdbus-call-method" , 2 , - 1 ) ); 
   proc3 = FUNCCALL_AGAIN(scheme_make_prim_w_arity (pardbus_init , "rdbus_init" , 0 , 0 ) ); 
   FUNCCALL_AGAIN(scheme_add_global ("rdbus-get-object" , proc1 , env ) ); 
   FUNCCALL_AGAIN(scheme_add_global ("rdbus-call-method" , proc2 , env ) ); 
@@ -5120,8 +5241,20 @@ Scheme_Object * scheme_reload (Scheme_Env * env ) {
 # undef FUNCCALL_AGAIN
 }
 Scheme_Object * scheme_initialize (Scheme_Env * env ) {
-  /* No conversion */
-  return scheme_reload (env ) ; 
+  PREPARE_VAR_STACK_ONCE(1);
+  BLOCK_SETUP_TOP((PUSH(env, 0)));
+# define XfOrM44_COUNT (1)
+# define SETUP_XfOrM44(x) SETUP(XfOrM44_COUNT)
+# define BLOCK_SETUP(x) BLOCK_SETUP_once(x)
+# define FUNCCALL(s, x) FUNCCALL_once(s, x)
+# define FUNCCALL_EMPTY(x) FUNCCALL_EMPTY_once(x)
+# define FUNCCALL_AGAIN(x) FUNCCALL_AGAIN_once(x)
+  FUNCCALL(SETUP_XfOrM44(_), rdbus_init () ); 
+  RET_VALUE_EMPTY_START (FUNCCALL_EMPTY(scheme_reload (env ) )) RET_VALUE_EMPTY_END ; 
+# undef BLOCK_SETUP
+# undef FUNCCALL
+# undef FUNCCALL_EMPTY
+# undef FUNCCALL_AGAIN
 }
 Scheme_Object * scheme_module_name () {
   /* No conversion */
