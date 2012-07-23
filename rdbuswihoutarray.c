@@ -1,4 +1,4 @@
- /**
+/**
  * rdbus.c
  *   A D-bus Implementation for Racket.
  */
@@ -36,8 +36,6 @@ GDBusProxy *Proxyobj = NULL;
 
 char * tostring (Scheme_Object *obj);
 
-Scheme_Object *gvariant_to_schemeobj (GVariant *val);
-
 // +--------------------+---------------------------------------------
 // | Exported Functions |
 // +--------------------+
@@ -62,7 +60,6 @@ rdbus_get_object (const gchar *name, const gchar *object_path, const gchar *inte
 {
   const GDBusProxy *objects[MAX_OBJECTS];   // The objects we've allocated
   //  const int latest_object = 0;              // The index of the latest object
-  // Scheme_Object *proxyobject;
 
   GError *error;
   
@@ -83,8 +80,6 @@ rdbus_get_object (const gchar *name, const gchar *object_path, const gchar *inte
       return -1; 
     } // if
 
-  //proxyobject = scheme_make_cptr(ProxyObj);
-
   return 0;
 } // rdbus_get_object
 
@@ -94,85 +89,59 @@ rdbus_get_object (const gchar *name, const gchar *object_path, const gchar *inte
 GVariant *
 scheme_obj_to_gvariant (Scheme_Object *list)
 {
-  GVariantBuilder *builder;
-  GVariant *finalr;
   GVariant *rvalue = NULL;
   Scheme_Object *firstelement;
-  int length = 0;
+  int length;
   gint32 i;
   char* rstring;
   double rdouble;
-  
-  builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
+
   length = scheme_list_length (list);
-  // rvalue = g_new(GVariant *, length);
 
   if (length == 0)
     {
       //  scheme_signal_error("length 0");
       return rvalue ;
     }  // if
-  else{
-    while (length != 0)
-      {
-	// Get the first element of the argument
-	firstelement = scheme_car (list);
-	list = scheme_cdr(list);
-	length = scheme_list_length(list);
-	// checking the scheme_type to see whether it is an integer or not
-	// Eventually see if we can convert this to a switch statement.
-	if (SCHEME_INTP (firstelement))
-	  {
-	    // we saved the return value at &i
-	     i = SCHEME_INT_VAL(firstelement); 
-	     rvalue = g_variant_new ("i",i);
-	     g_variant_builder_add_value(builder,rvalue);
-	    // return rvalue;
-	  } // if it's an integer
-	else if (SCHEME_BYTE_STRINGP (firstelement)|| SCHEME_CHAR_STRINGP(firstelement))
-	  {
-	    //scheme_signal_error ("We are in Character");
-	    //getting the string out of the scheme_object
-	    rstring = SCHEME_BYTE_STR_VAL(list);
-	    // we will convert it to g_variant
-	    rvalue = g_variant_new ("(&s)", rstring);
-            g_variant_builder_add_value(builder, rvalue);
-	  } // if it's a character
-	else if (SCHEME_TYPE (firstelement) == scheme_double_type)
-	  {
-	    //getting the double out of the scheme_object
-	    rdouble = scheme_real_to_double(list);
-	    // we will convert it to g_variant
-	    rvalue = g_variant_new_double(rdouble);
-	    g_variant_builder_add_value(builder, rvalue);
-	  } // if it's a double
-      } // while loop
- 
-    finalr = g_variant_builder_end (builder);
-    return finalr;
-  } //else
-  return finalr;
-} // scheme_obj_to_gvariant
 
-/**
- *For Server : Convert an array of Scheme objects into a list of the same objects for SchemeObject to Gvariant
- */
-Scheme_Object *
-g_variant_tuple_to_scheme_list (GVariant *tuple, int index, int size)
-{
-  // Base case: We reached the end of the tuple
-  if (index == size)
-    return scheme_null; // Or whatever the empty list value is
-  else
+  else if (length == 1)
     {
-      Scheme_Object *car;
-      Scheme_Object *cdr;
-
-      car = gvariant_to_schemeobj (g_variant_get_child_value (tuple, index));
-      cdr = g_variant_tuple_to_scheme_list (tuple, index+1, size);
-      return scheme_make_pair (car, cdr);
-    } // if we're still in the tuple
-} // g_variant_tuple_to_scheme_list
+      // Get the first element of the argument
+      firstelement = scheme_car (list);
+      // checking the scheme_type to see whether it is an integer or not
+      // Eventually see if we can convert this to a switch statement.
+      if (SCHEME_INTP (firstelement))
+	{
+	  // we saved the return value at &i
+	   i = SCHEME_INT_VAL(firstelement); 
+	   //  scheme_signal_error("%d", i);
+	   rvalue = g_variant_new ("(i)", i);
+	   return rvalue;
+	} // if it's an integer
+      else if (SCHEME_BYTE_STRINGP (firstelement)|| SCHEME_CHAR_STRINGP(firstelement))
+	{
+          //scheme_signal_error ("We are in Character");
+	  //getting the string out of the scheme_object
+	  fprintf (stderr, "before string type \n");
+	  rstring = SCHEME_BYTE_STR_VAL(list);
+          fprintf (stderr, "After type \n");
+	  // we will convert it to g_variant
+	  rvalue = g_variant_new ("(&s)", rstring);
+          fprintf (stderr, "G type \n");
+	  return rvalue;
+	} // if it's a character
+      else if (SCHEME_TYPE (firstelement) == scheme_double_type)
+	{
+	  //getting the double out of the scheme_object
+	  rdouble = scheme_real_to_double(list);
+	  // we will convert it to g_variant
+	  rvalue = g_variant_new_double(rdouble);
+	  return rvalue;
+	} // if it's a double
+    } // if we have a single element
+ 
+  return rvalue;
+} // scheme_obj_to_gvariant
 
 /**
  *Translating the gvariant to Scheme Object
@@ -182,28 +151,18 @@ gvariant_to_schemeobj (GVariant *ivalue)
 {
   gint32 i;
   GVariant *temp;
+  Scheme_Object *fvalue = NULL;
   const gchar *fstring;
   gsize length = 0;
-  gsize size = 0;
-  gint32 r1 = 0;
-  gdouble r2 = 0;
-  //GVariantType *type;
-  //gchar *typestring;
-  //gchar *description;
-  //Scheme_Object *finallist;
-  Scheme_Object *fint;
-  Scheme_Object *fstringss;
-  Scheme_Object *fdouble;
-  Scheme_Object *sflist = NULL;
-  gchar *tmp;
+  gsize size;
+  gint32 r1;
+  gdouble r2;
+  GVariantType *type;
+  gchar *typestring;
+  gchar *description;
 
-  //scheme_signal_error ("Not tuple yet");
+  //scheme_signal_error ("Not tupal yet");
 
-  tmp = g_variant_print (ivalue, FALSE);
-  fprintf (stderr, "gvariant_to_schemobj(%s)\n", tmp);
-  g_free (tmp);
-  
-  size = g_variant_get_size (ivalue);
   //  fprintf (stderr, "Exploring the return value.\n");
   /* if (ivalue == NULL)
     {
@@ -220,71 +179,50 @@ gvariant_to_schemeobj (GVariant *ivalue)
       g_free (description);
       } // if (ivalue != NULL)*/
     
-  if (ivalue == NULL)
-    {
-      return scheme_void;
-    }
-  
-  if (g_variant_is_of_type  (ivalue, G_VARIANT_TYPE_INT32))
-    {
-      r1 = g_variant_get_int32 (ivalue);
-      fint = scheme_make_integer_value(r1); 
-      return fint;
-    }// else if
-  else if (g_variant_is_of_type (ivalue, G_VARIANT_TYPE_STRING))
-    {
-      fprintf ( stderr, "Type_string\n");
-     
-      // scheme_signal_error ("%d", size);
-      fstring  = g_variant_get_string(ivalue, &size);
-      fstringss = scheme_make_locale_string(fstring);
-      return fstringss;
-    }// else if
-  else if (g_variant_is_of_type (ivalue, G_VARIANT_TYPE_BYTESTRING))
-    {
-      fprintf (stderr, "Bytestring\n");
-      scheme_signal_error("stringbyeerror");
-      fstring = g_variant_get_bytestring (ivalue);
-      fstringss = scheme_make_locale_string(fstring);
-      return fstringss;
-    }// else if
-  
-  
-  else if (g_variant_is_of_type (ivalue, G_VARIANT_TYPE_DOUBLE))
-    {
-      r2 = g_variant_get_double (ivalue);
-      fdouble = scheme_make_double (r2);
-      return fdouble; 
-    }// else if
-  
-  else if (g_variant_is_of_type (ivalue, G_VARIANT_TYPE_TUPLE))
-    {
-      int i;
-      Scheme_Object *result;  // The list we're building
-      Scheme_Object *element; // One element of that list
-
-      fprintf (stderr, "Handling a tuple.\n");
-
-      result = scheme_null;
-      for (i = g_variant_n_children (ivalue) - 1; i >= 0; i--)
-	{
-	  fprintf (stderr, "Handling child %d\n", i);
-	  element = gvariant_to_schemeobj (g_variant_get_child_value (ivalue, i));
-	  result = scheme_make_pair (element, result);
-	} // for
+    length = g_variant_n_children(ivalue);
+    for(i = 0; i < length; i++)
+    { 
+      // scheme_signal_error("not returning a Tuple");
+      //getting each element of the tuple
+      temp = g_variant_get_child_value(ivalue, i);
       
-      return result;
-    } // if it's a tuple
-  
-      // Default.  Give up
-  else
-    {
-      scheme_signal_error ("could not convert type");
-    } // default
-} //gvariant_to_schemeobj
+      if (g_variant_is_of_type  (temp, G_VARIANT_TYPE_INT32))
+	{
+	  r1 = g_variant_get_int32 (temp);
+	  fvalue = scheme_make_integer_value(r1);
+	  return fvalue;
+	}// else if
+      else if (g_variant_is_of_type (temp, G_VARIANT_TYPE_STRING))
+	{
+	  size = g_variant_get_size(temp);
+	  fstring  = g_variant_get_string(temp, &size);
+	  fvalue = scheme_make_locale_string(fstring);
+	  return fvalue;
+	}// else if
+      else if (g_variant_is_of_type (temp, G_VARIANT_TYPE_BYTESTRING))
+	{
+	  scheme_signal_error("stringbyeerror");
+	  fstring = g_variant_get_bytestring(temp);
+	  fvalue = scheme_make_locale_string(fstring);
+	  return fvalue;
+	}// else if
+
+      else if (g_variant_is_of_type (temp, G_VARIANT_TYPE_DOUBLE))
+	{
+	  r2 = g_variant_get_double(temp);
+	  fvalue = scheme_make_double(r2);
+	  return fvalue;
+	}// else if
+
+    }// for statement
+ 
+
+     return fvalue;
+	
+}//gvariant_to_schemeobj
 
 /**
- *For Client : Convert an array of Scheme objects into a list of the same objects for SchemeObject to Gvariant
+ * Convert an array of Scheme objects into a list of the same objects.
  */
 Scheme_Object *
 make_object_list (int n, Scheme_Object *values[])
@@ -329,17 +267,15 @@ rdbus_call_method (int i, Scheme_Object *proc, Scheme_Object *list )
   if (i == 0)
     { 
       proxy = Proxyobj; 
-      fprintf (stderr, "Before crashing\n");
       ivalue = scheme_obj_to_gvariant (list);
       // the method is converted into string here
       methodname = tostring (proc);
      // scheme_signal_error("callerror");
-      fprintf (stderr, "after method name\n");
+      fprintf (stderr, "Calling %s\n", methodname);
       //  scheme_signal_error ("methodnamepassed");
       error = NULL;
       frvalue = g_dbus_proxy_call_sync (proxy, methodname, ivalue, 0, -1, NULL, &error);
-      fprintf (stderr, "after calling gdbus\n");
-      if (frvalue == NULL)
+      /*      if (frvalue == NULL)
         {
 	  fprintf (stderr, "Call to %s failed ", methodname);
 	  if (error != NULL)
@@ -347,11 +283,10 @@ rdbus_call_method (int i, Scheme_Object *proc, Scheme_Object *list )
 	  else
 	    fprintf (stderr, "for an unknown reason.\n");
 	  return scheme_void;
-	  } // if (frvalue == NULL) 
+	  } // if (frvalue == NULL)*/
       // scheme_signal_error ("calling gimp");
       //scheme_signal_error("newerror");
       fobject = gvariant_to_schemeobj (frvalue);
-      fprintf (stderr, "after calling gvariant_to_schemeobj\n");
       //scheme_signal_error ("getting the scheme object back");
       // scheme_signal_error("lasterror");
       return fobject;
@@ -486,7 +421,6 @@ Scheme_Object *scheme_reload (Scheme_Env *env)
 
 Scheme_Object *scheme_initialize(Scheme_Env *env)
 {
-  rdbus_init();
   /* First load is same as every load: */
   return scheme_reload(env);
 }//scheme_initialize
@@ -497,4 +431,3 @@ scheme_module_name ()
   /* This extension defines a module named `idmodule': */
   return scheme_intern_symbol ("idmodule");
 } // scheme_module_name
-

@@ -13,7 +13,7 @@
 #    -lgio-2.0 -lgobject-2.0 -lglib-2.0 
 # So we need to translate that to mzc syntax, too.  See MZC_LDLIBS
 
-CFLAGS = -g -Wall -fPIC `pkg-config --cflags gio-2.0 glib-2.0 gio-unix-2.0` -I/usr/racket/include
+CFLAGS = -g -Wall -fPIC `pkg-config --cflags gio-2.0 glib-2.0 gio-unix-2.0` -I/usr/racket/include -DVERBOSE
 LDLIBS = `pkg-config --libs gio-2.0 glib-2.0 gio-unix-2.0`
 
 MZC_CFLAGS = ++ccf -g ++ccf -Wall ++ccf -pthread ++cppf -I/usr/include/glib-2.0 ++cppf -I/usr/lib/x86_64-linux-gnu/glib-2.0/include ++cppf -I/usr/include/gio-unix-2.0/  
@@ -48,6 +48,5 @@ rdbus_3m.o: rdbus.3m.c
 
 rdbus.3m.c: rdbus.c
 	mzc $(MZC_CFLAGS) --xform rdbus.c
-
 rams-test-server.o: rams-test-server.c
 rams-test-server: rams-test-server.o
