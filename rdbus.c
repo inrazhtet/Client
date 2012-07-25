@@ -43,7 +43,6 @@ Scheme_Object *gvariant_to_schemeobj (GVariant *val);
 // +--------------------+
 
 /**
- *creates a proxy for accessing interface_name on the remote object at object_path owned by name at connection and synchronously loads.
  *it provides the facilities for registering and managing all fundamental data types, user-defined object and interface types.
  */
 void
@@ -60,7 +59,7 @@ rdbus_init (void)
 int 
 rdbus_get_object (const gchar *name, const gchar *object_path, const gchar *interface_name)
 {
-  const GDBusProxy *objects[MAX_OBJECTS];   // The objects we've allocated
+  const GDBusProxy *objects[MAX_OBJECTS];       // The objects we've allocated (still not in use)
   //  const int latest_object = 0;              // The index of the latest object
   // Scheme_Object *proxyobject;
 
@@ -83,13 +82,14 @@ rdbus_get_object (const gchar *name, const gchar *object_path, const gchar *inte
       return -1; 
     } // if
 
-  //proxyobject = scheme_make_cptr(ProxyObj);
+      //proxyobject = scheme_make_cptr(ProxyObj);
 
   return 0;
 } // rdbus_get_object
 
 /**
  *Translating the scheme_object to gvariant type for the client
+ *This step is used on sending input values onto the DBus
  */
 GVariant *
 scheme_obj_to_gvariant (Scheme_Object *list)
@@ -156,6 +156,7 @@ scheme_obj_to_gvariant (Scheme_Object *list)
 
 /**
  *For Server : Convert an array of Scheme objects into a list of the same objects for SchemeObject to Gvariant
+ *We have not used this recursive helper function. We did it iteratively below.
  */
 Scheme_Object *
 g_variant_tuple_to_scheme_list (GVariant *tuple, int index, int size)
@@ -170,7 +171,7 @@ g_variant_tuple_to_scheme_list (GVariant *tuple, int index, int size)
 
       car = gvariant_to_schemeobj (g_variant_get_child_value (tuple, index));
       cdr = g_variant_tuple_to_scheme_list (tuple, index+1, size);
-      return scheme_make_pair (car, cdr);
+      return scheme_make_pair (car, cdr); 
     } // if we're still in the tuple
 } // g_variant_tuple_to_scheme_list
 
@@ -187,10 +188,6 @@ gvariant_to_schemeobj (GVariant *ivalue)
   gsize size = 0;
   gint32 r1 = 0;
   gdouble r2 = 0;
-  //GVariantType *type;
-  //gchar *typestring;
-  //gchar *description;
-  //Scheme_Object *finallist;
   Scheme_Object *fint;
   Scheme_Object *fstringss;
   Scheme_Object *fdouble;
