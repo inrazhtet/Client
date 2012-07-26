@@ -156,6 +156,7 @@ scheme_obj_to_gvariant (Scheme_Object *list)
 
 /**
  *For Server : Convert an array of Scheme objects into a list of the same objects for SchemeObject to Gvariant
+ * 
  */
 Scheme_Object *
 g_variant_tuple_to_scheme_list (GVariant *tuple, int index, int size)
